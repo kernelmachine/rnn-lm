@@ -8,13 +8,10 @@ from gensim.models import KeyedVectors
 class Data(object):
     def __init__(self):
         self.train_csv = None
-        self.train_x1 = None
-        self.train_x2 = None
+        self.train = None
         self.train_labels = None
-        self.valid_x1 = None
-        self.valid_x2 = None
+        self.valid = None
         self.valid_labels = None
-        self.contrastive = False
         self.embedding_matrix = None
 
     def import_data(self, train_csv):
@@ -33,116 +30,85 @@ class Data(object):
             # translate sentence string into indices
             sentence_ix = [vocab2ix_dict[x] for x in list(sentence) if x in vocab_chars]
             # Pad or crop to embedding dimension
-            sentence_ix = (sentence_ix + [0]*self.embedding_dim)[0:self.embedding_dim]
+            sentence_ix = (sentence_ix + [0]*self.word_dim)[0:self.word_dim]
             return(sentence_ix)
-        self.train_x1 = np.matrix(df.question1.str.lower().apply(sentence2onehot).tolist())
-        self.train_x2 = np.matrix(df.question2.str.lower().apply(sentence2onehot).tolist())
+        one_hots = df.sentences.str.lower().apply(sentence2onehot)
+        self.train = one_hots.apply(lambda x: x[:-1])
+        self.train_labels = one_hots.apply(lambda x: x[1:])
         if self.embedding_matrix is None:
-            self.embedding_matrix = tf.diag(tf.ones(shape=[self.embedding_dim]))
-        if self.contrastive:
-            self.train_labels = np.array(df.is_duplicate)
-            return
-        else:
-            labels_idx = np.array(df.is_duplicate)
-            self.train_labels = np.zeros((labels_idx.shape[0], 2))
-            for i, x in enumerate(labels_idx):
-                self.train_labels[i, int(x)] = 1
-            return
+            self.embedding_matrix = tf.diag(tf.ones(shape=[self.word_dim]))
+        return
     
     def preprocess_word2vec(self, df, save_embedding=False, save_train_data=False):
         print("preprocessing data...")
-
-        
-
-        if self.train_x1 is None or self.train_x2 is None:
-            tk = text.Tokenizer(num_words=200000)
-            tk.fit_on_texts(list(df.question1.values.astype(str)) + list(df.question2.values.astype(str)))
-            word_index = tk.word_index
-            train_x1 = tk.texts_to_sequences(df.question1.values)
-            self.train_x1 = sequence.pad_sequences(train_x1, maxlen=self.max_len)
-            train_x2 = tk.texts_to_sequences(df.question2.values.astype(str))
-            self.train_x2 = sequence.pad_sequences(train_x2, maxlen=self.max_len)
-            
+        df['sentences'] = df.sentences.apply(lambda x: 'start ' + x + ' end')
+        tk = text.Tokenizer(num_words=self.word_dim)
+        tk.fit_on_texts(list(df.sentences.values.astype(str)))
+        word_index = tk.word_index
+        train = tk.texts_to_sequences(df.sentences.values)
+        sequences = sequence.pad_sequences(train, maxlen=self.max_len)
+        self.train = sequences[:, :-1]
+        self.train_labels = sequences[:, 1:]
+        start_token = word_index['start']
+        end_token = word_index['end']
         if save_train_data:
             print("saving preprocessed training data...")
-            np.save("%s_x1.npy" % self.train_csv, self.train_x1)
-            np.save("%s_x2.npy" % self.train_csv , self.train_x2)
-
+            np.save("%s.npy" % self.train_csv, self.train)
         if self.embedding_matrix is None:
-            if self.train_x1 is not None or self.train_x2 is not None:
-                tk = text.Tokenizer(num_words=200000)
-                tk.fit_on_texts(list(df.question1.values.astype(str)) + list(df.question2.values.astype(str)))
-                word_index = tk.word_index
-            print("downloading word2vec...")
-            word2vec = KeyedVectors.load_word2vec_format('data/GoogleNews-vectors-negative300.bin', binary=True)
-            num_words = min(200000, len(word_index)+1)
-            print("populating embedding matrix...")
-            self.embedding_matrix = np.zeros((num_words, self.embedding_dim))
-            for word, i in word_index.items():
-                if word in word2vec.vocab:
-                    self.embedding_matrix[i] = word2vec.word_vec(word)
-            if save_embedding:
-                print("saving embedding matrix...")
-                np.save("%s_embedding.npy" % self.train_csv, self.embedding_matrix)
-        if self.contrastive:
-            self.train_labels = np.array(df.is_duplicate)
-            return
-        else:
-            labels_idx = np.array(df.is_duplicate)
-            self.train_labels = np.zeros((labels_idx.shape[0], 2))
-            for i, x in enumerate(labels_idx):
-                self.train_labels[i, int(x)] = 1
-            return
+            self.embedding_matrix = tf.diag(tf.ones(shape=[self.word_dim]))
+        # if self.embedding_matrix is None:
+        #     if self.train is not None:
+        #         tk = text.Tokenizer(num_words=200000)
+        #         tk.fit_on_texts(list(df.sentences))
+        #         word_index = tk.word_index
+        #     print("downloading word2vec...")
+        #     word2vec = KeyedVectors.load_word2vec_format('data/GoogleNews-vectors-negative300.bin', binary=True)
+        #     num_words = min(200000, len(word_index)+1)
+        #     print("populating embedding matrix...")
+        #     self.embedding_matrix = np.zeros((num_words, self.embedding_dim))
+        #     for word, i in word_index.items():
+        #         if word in word2vec.vocab:
+        #             self.embedding_matrix[i] = word2vec.word_vec(word)
+        #     if save_embedding:
+        #         print("saving embedding matrix...")
+        #         np.save("%s_embedding.npy" % self.train_csv, self.embedding_matrix)
+        print("example sentence: %s" % df['sentences'][0])
+        print("x: %s" % self.train[0,:])
+        print("y: %s" % self.train_labels[0,:])
+        return start_token, end_token, word_index
 
     def subsample(self, n_train_samples, n_validation_samples):
         print("subsampling data...")
-        train_size = self.train_x1.shape[0]
+        train_size = self.train.shape[0]
         global_idx = np.random.choice(train_size, n_train_samples + n_validation_samples, replace=False)
         np.random.shuffle(global_idx)
         train_sample_idx = global_idx[:n_train_samples]
         validation_sample_idx = global_idx[n_train_samples:]
-        self.valid_x1 = self.train_x1[validation_sample_idx, :self.embedding_dim]
-        self.valid_x2 = self.train_x2[validation_sample_idx, :self.embedding_dim]
-        self.train_x1 = self.train_x1[train_sample_idx, :self.embedding_dim]
-        self.train_x2 = self.train_x2[train_sample_idx, :self.embedding_dim]
-        if self.contrastive:
-            self.valid_labels = self.train_labels[validation_sample_idx]
-            self.train_labels = self.train_labels[train_sample_idx]
-        else:
-            self.valid_labels = self.train_labels[validation_sample_idx,:]
-            self.train_labels = self.train_labels[train_sample_idx, :]
+        self.valid = self.train[validation_sample_idx, :self.word_dim]
+        self.train = self.train[train_sample_idx, :self.word_dim]
+        self.valid_labels = self.train_labels[validation_sample_idx,:]
+        self.train_labels = self.train_labels[train_sample_idx, :]
 
         
         
     def batch_generator(self, batch_size):
-            l = self.train_x1.shape[0]
-            if self.contrastive:
-                for ndx in range(0, l, batch_size):
-                    yield (self.train_x1[ndx:min(ndx + batch_size, l), :],
-                        self.train_x2[ndx:min(ndx + batch_size, l), :],
-                        self.train_labels[ndx:min(ndx + batch_size, l)],
-                        )
-            else:
-                for ndx in range(0, l, batch_size):
-                    yield (self.train_x1[ndx:min(ndx + batch_size, l), :],
-                        self.train_x2[ndx:min(ndx + batch_size, l), :],
-                        self.train_labels[ndx:min(ndx + batch_size, l),:],
-                        )
+            l = self.train.shape[0]
+            for ndx in range(0, l, batch_size):
+                yield (self.train[ndx:min(ndx + batch_size, l), :],
+                    self.train_labels[ndx:min(ndx + batch_size, l),:],
+                    )
                         
-    def run(self, train_csv, n_train_samples=400000, n_validation_samples=10000, embedding_matrix=None, embedding_dim=300, max_len=50, train_x1=None, train_x2=None, save_embedding=False, save_train_data=False, contrastive=False):
+    def run(self, train_csv, n_train_samples=400000, n_validation_samples=10000, embedding_matrix=None, max_len=50, word_dim=8000, train=None,save_embedding=False, save_train_data=False):
         self.train_csv = train_csv
         df = self.import_data(train_csv)
-        self.contrastive = contrastive
         if embedding_matrix is not None:
             print("loading embedding matrix from %s" % embedding_matrix)
             self.embedding_matrix = np.load(embedding_matrix)
+        self.word_dim = word_dim
         self.max_len = max_len
-        self.embedding_dim = embedding_dim
-        if train_x1 is not None:
-            print("loading train_x1 from %s" % train_x1)
-            self.train_x1 = np.load(train_x1)
-        if train_x2 is not None:
-            print("loading train_x2 from %s" % train_x2)
-            self.train_x2 = np.load(train_x2)
-        self.preprocess_word2vec(df, save_embedding, save_train_data)
+        if train is not None:
+            print("loading train_x1 from %s" % train)
+            self.train = np.load(train)
+        start_token, end_token, word_index = self.preprocess_word2vec(df, save_embedding, save_train_data)
         self.subsample(n_train_samples, n_validation_samples)
+        return start_token, end_token, word_index

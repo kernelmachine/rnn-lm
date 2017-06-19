@@ -2,10 +2,10 @@ import tensorflow as tf
 from tqdm import tqdm
 
 class Display(object):
-    def log_train(self, epoch, batch_idx, batch_train_loss, batch_train_accuracy):
-        tqdm.write("EPOCH: %s, BATCH: %s, TRAIN LOSS: %s, TRAIN ACCURACY: %s" % (epoch, batch_idx, batch_train_loss, batch_train_accuracy))
-    def log_validation(self, epoch, batch_idx, batch_valid_accuracy):
-        tqdm.write("EPOCH: %s, BATCH: %s, VALIDATION ACCURACY: %s" % (epoch, batch_idx,  batch_valid_accuracy))
+    def log_train(self, epoch, batch_idx, batch_train_loss, batch_train_perplexity):
+        tqdm.write("EPOCH: %s, BATCH: %s, TRAIN LOSS: %s, TRAIN PERPLEXITY: %s" % (epoch, batch_idx, batch_train_loss, batch_train_perplexity))
+    def log_validation(self, epoch, batch_idx, batch_valid_perplexity):
+        tqdm.write("EPOCH: %s, BATCH: %s, VALIDATION PERPLEXITY: %s" % (epoch, batch_idx,  batch_valid_perplexity))
     def done(self):
         print("Done!")
 
