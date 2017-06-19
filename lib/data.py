@@ -23,9 +23,12 @@ class Data(object):
     def preprocess_char(self, df):
         print("preprocessing data...")
         import string
-        vocab_chars = string.ascii_lowercase + '0123456789 '
+        df['sentences'] = df.sentences.apply(lambda x: '^ ' + x + ' $')
+        vocab_chars = string.ascii_lowercase + '^$0123456789 '
         vocab2ix_dict = {char:(ix+1) for ix, char in enumerate(vocab_chars)}
         vocab_length = len(vocab_chars) + 1
+        start_token = vocab2ix_dict['^']
+        end_token = vocab2ix_dict['$']
         def sentence2onehot(sentence, vocab2ix_dict = vocab2ix_dict):
             # translate sentence string into indices
             sentence_ix = [vocab2ix_dict[x] for x in list(sentence) if x in vocab_chars]
@@ -33,11 +36,16 @@ class Data(object):
             sentence_ix = (sentence_ix + [0]*self.word_dim)[0:self.word_dim]
             return(sentence_ix)
         one_hots = df.sentences.str.lower().apply(sentence2onehot)
-        self.train = one_hots.apply(lambda x: x[:-1])
-        self.train_labels = one_hots.apply(lambda x: x[1:])
+        one_hots = np.matrix(one_hots.tolist())
+        self.train = one_hots[:, :-1]
+        self.train_labels = one_hots[:, 1:]
         if self.embedding_matrix is None:
             self.embedding_matrix = tf.diag(tf.ones(shape=[self.word_dim]))
-        return
+        print("example sentence: %s" % df['sentences'][0])
+        import ipdb; ipdb.set_trace()
+        print("x: %s" % self.train[0,:])
+        print("y: %s" % self.train_labels[0,:])
+        return start_token, end_token, vocab2ix_dict
     
     def preprocess_word2vec(self, df, save_embedding=False, save_train_data=False):
         print("preprocessing data...")
@@ -56,22 +64,6 @@ class Data(object):
             np.save("%s.npy" % self.train_csv, self.train)
         if self.embedding_matrix is None:
             self.embedding_matrix = tf.diag(tf.ones(shape=[self.word_dim]))
-        # if self.embedding_matrix is None:
-        #     if self.train is not None:
-        #         tk = text.Tokenizer(num_words=200000)
-        #         tk.fit_on_texts(list(df.sentences))
-        #         word_index = tk.word_index
-        #     print("downloading word2vec...")
-        #     word2vec = KeyedVectors.load_word2vec_format('data/GoogleNews-vectors-negative300.bin', binary=True)
-        #     num_words = min(200000, len(word_index)+1)
-        #     print("populating embedding matrix...")
-        #     self.embedding_matrix = np.zeros((num_words, self.embedding_dim))
-        #     for word, i in word_index.items():
-        #         if word in word2vec.vocab:
-        #             self.embedding_matrix[i] = word2vec.word_vec(word)
-        #     if save_embedding:
-        #         print("saving embedding matrix...")
-        #         np.save("%s_embedding.npy" % self.train_csv, self.embedding_matrix)
         print("example sentence: %s" % df['sentences'][0])
         print("x: %s" % self.train[0,:])
         print("y: %s" % self.train_labels[0,:])
@@ -109,6 +101,6 @@ class Data(object):
         if train is not None:
             print("loading train_x1 from %s" % train)
             self.train = np.load(train)
-        start_token, end_token, word_index = self.preprocess_word2vec(df, save_embedding, save_train_data)
+        start_token, end_token, word_index = self.preprocess_char(df)
         self.subsample(n_train_samples, n_validation_samples)
         return start_token, end_token, word_index

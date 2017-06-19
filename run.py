@@ -44,7 +44,6 @@ class Run(object):
                  save_embedding=config.save_embedding, 
                  save_train_data=config.save_train_data)
         index_to_word = {y : x for x,y in word_index.items()}
-        import ipdb; ipdb.set_trace()
         with tf.Graph().as_default() as graph:
            config.model = config.model(data)
            writer = TensorBoard(graph=graph, logdir=config.logdir).writer
@@ -71,14 +70,14 @@ class Run(object):
                                                                                 })
                             display.log_validation(epoch, batch_idx, batch_valid_perplexity)
                             new_sentence = np.zeros((1,1))
-                            new_sentence[0,0] = word_index['start']
+                            new_sentence[0,0] = word_index['^']
                             i = 0
-                            while word_index['end'] not in new_sentence:
+                            while word_index['$'] not in new_sentence:
                                 next_word_prob, = sess.run([output], feed_dict = {config.model.network.train : new_sentence})
-                                pred = tf.nn.softmax(next_word_prob)
-                                next_word = np.argmax(pred.eval())
+                                pred = tf.nn.softmax(next_word_prob).eval()
+                                next_word = np.argmax(np.random.multinomial(1, pred.tolist()[0]))
                                 new_sentence = np.concatenate([new_sentence, [[next_word]]], axis=1)
-                                print(' '.join([index_to_word[x] for x in new_sentence.tolist()[0]]))
+                            print(' '.join([index_to_word[x] for x in new_sentence.tolist()[0]]))
                     writer.add_summary(summary, batch_idx)
                     
         display.done()
@@ -100,13 +99,13 @@ if __name__ == '__main__':
     args = parser.parse_args()
                                          
     config = Config(network="lm_stacked_fc",
-                    n_train_samples=298000, 
-                    n_validation_samples=10000,
+                    n_train_samples=7000, 
+                    n_validation_samples=222,
                     n_epochs=10,
                     batch_size=100,
                     embedding_matrix = args.embedding,
-                    max_len=10,
-                    word_dim=95603, 
+                    max_len=40,
+                    word_dim=40, 
                     train = args.train,
                     logdir="/tmp/quora_logs/test", 
                     save_embedding=args.save_embedding,
