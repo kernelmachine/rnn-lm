@@ -72,13 +72,12 @@ class Run(object):
                             display.log_validation(epoch, batch_idx, batch_valid_perplexity)
                             new_sentence = np.zeros((1,1))
                             new_sentence[0,0] = word_index['^']
-                            i = 0
                             while word_index['$'] not in new_sentence and len(new_sentence[0]) < 50:
                                 next_word_prob, = sess.run([output], feed_dict = {config.model.network.train : new_sentence})
-                                pred = tf.nn.softmax(next_word_prob).eval()
-                                next_word = np.argmax(np.random.multinomial(1, pred.tolist()[0]))
+                                pred = tf.nn.softmax(next_word_prob[-1]).eval()
+                                next_word = np.argmax(pred)
                                 new_sentence = np.concatenate([new_sentence, [[next_word]]], axis=1)
-                            print(' '.join([index_to_word[x] for x in new_sentence.tolist()[0]]))
+                            print(''.join([index_to_word[x] for x in new_sentence.tolist()[0]]))
                             writer.add_summary(summary, batch_idx)
                 
         display.done()

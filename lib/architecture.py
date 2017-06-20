@@ -19,20 +19,17 @@ class Layer(object):
 
     def stacked_biRNN(self, input, cell_type, n_layers, network_dim):
         # xs = self.rnn_temporal_split(input)
-        dropout = lambda y : tf.contrib.rnn.DropoutWrapper(y, output_keep_prob=0.5, seed=42)
+        # dropout = lambda y : tf.contrib.rnn.DropoutWrapper(y, input_keep_prob=keep_prob, output_keep_prob=keep_prob, seed=42)
 
         fw_cells = {"LSTM": [lambda x : tf.contrib.rnn.BasicLSTMCell(x, reuse = None) for _ in range(n_layers)], 
                     "GRU" : [lambda x : tf.contrib.rnn.GRU(x, reuse = None) for _ in range(n_layers)]}[cell_type]
         bw_cells = {"LSTM": [lambda x : tf.contrib.rnn.BasicLSTMCell(x, reuse = None) for _ in range(n_layers)], 
                     "GRU" : [lambda x : tf.contrib.rnn.GRU(x, reuse = None) for _ in range(n_layers)]}[cell_type]
-        fw_cells = [dropout(fw_cell(network_dim)) for fw_cell in fw_cells]
-        bw_cells = [dropout(bw_cell(network_dim)) for bw_cell in bw_cells]
+        fw_cells = [fw_cell(network_dim) for fw_cell in fw_cells]
+        bw_cells = [bw_cell(network_dim) for bw_cell in bw_cells]
         fw_stack = tf.contrib.rnn.MultiRNNCell(fw_cells)
         bw_stack = tf.contrib.rnn.MultiRNNCell(bw_cells)
-        outputs, _ = tf.nn.bidirectional_dynamic_rnn(fw_stack,
-                                                                bw_stack,
-                                                                input,
-                                                                dtype=tf.float32)
+        outputs, _ = tf.nn.bidirectional_dynamic_rnn(fw_stack, bw_stack, input, dtype=tf.float32)
         outputs = tf.reshape(outputs, [-1, network_dim*2]) 
         return outputs
 
@@ -49,13 +46,25 @@ class Layer(object):
                                                                 xs,
                                                                 dtype=tf.float32)
         return outputs, output_state_fw, output_state_bw
+    
+    def stacked_RNN(self, input, cell_type, n_layers, keep_prob, network_dim):
+        # xs = self.rnn_temporal_split(input)
+        dropout = lambda y : tf.contrib.rnn.DropoutWrapper(y, input_keep_prob=keep_prob, output_keep_prob=keep_prob, seed=42)
+        fw_cells = {"LSTM": [lambda x : tf.contrib.rnn.BasicLSTMCell(x, reuse = None) for _ in range(n_layers)], 
+                    "GRU" : [lambda x : tf.contrib.rnn.GRU(x, reuse = None) for _ in range(n_layers)]}[cell_type]
+        fw_cells = [fw_cell(network_dim) for fw_cell in fw_cells]
+        fw_cells = [dropout(fw_cell) for fw_cell in fw_cells]
+        fw_stack = tf.contrib.rnn.MultiRNNCell(fw_cells)
+        outputs, _ = tf.nn.dynamic_rnn(fw_stack, input,  dtype=tf.float32)
+        outputs = tf.reshape(outputs, [-1, network_dim])
+        return outputs
 
     def rnn(self, input, cell_type, network_dim):
         # xs = self.rnn_temporal_split(input)
         fw_cell_unit = {"GRU": lambda x: tf.contrib.rnn.GRU(x, reuse=None),
                         "LSTM": lambda x: tf.contrib.rnn.BasicLSTMCell(x, reuse=None)}[cell_type]
         fw = fw_cell_unit(network_dim)
-        outputs, _ = tf.nn.dynamic_rnn(fw, input, dtype=tf.float32)
+        outputs, _ = tf.nn.dynamic_rnn(fw, input,  dtype=tf.float32)
         outputs = tf.reshape(outputs, [-1, network_dim])
         return outputs
 
@@ -73,9 +82,9 @@ class Network(Layer):
     def lm_stacked_fc_network(self):
         embed = self.embed(self.train)
         with tf.variable_scope("x", reuse=None) as scope:  
-            repr = self.stacked_biRNN(input=embed, cell_type="LSTM", n_layers=3, network_dim=256)
+            repr = self.stacked_RNN(input=embed, cell_type="LSTM", n_layers=2, keep_prob=0.8, network_dim=256)
         repr_concat = tf.concat(repr, axis=0)
-        output = self.dense_unit(repr_concat, "output", 256*2, self.word_dim)
+        output = self.dense_unit(repr_concat, "output", 256, self.word_dim)
         return output
 
 
