@@ -18,7 +18,7 @@ class Layer(object):
         return embed_split
 
     def stacked_biRNN(self, input, cell_type, n_layers, network_dim):
-        xs = self.rnn_temporal_split(input)
+        # xs = self.rnn_temporal_split(input)
         dropout = lambda y : tf.contrib.rnn.DropoutWrapper(y, output_keep_prob=0.5, seed=42)
 
         fw_cells = {"LSTM": [lambda x : tf.contrib.rnn.BasicLSTMCell(x, reuse = None) for _ in range(n_layers)], 
@@ -29,12 +29,12 @@ class Layer(object):
         bw_cells = [dropout(bw_cell(network_dim)) for bw_cell in bw_cells]
         fw_stack = tf.contrib.rnn.MultiRNNCell(fw_cells)
         bw_stack = tf.contrib.rnn.MultiRNNCell(bw_cells)
-        outputs, fw_output_state, bw_output_state = tf.contrib.rnn.static_bidirectional_rnn(fw_stack,
+        outputs, _ = tf.nn.bidirectional_dynamic_rnn(fw_stack,
                                                                 bw_stack,
-                                                                xs,
+                                                                input,
                                                                 dtype=tf.float32)
-        
-        return outputs, fw_output_state, bw_output_state  
+        outputs = tf.reshape(outputs, [-1, network_dim*2]) 
+        return outputs
 
     def biRNN(self, input, cell_type, network_dim):
         xs = self.rnn_temporal_split(input)
@@ -59,17 +59,11 @@ class Layer(object):
         outputs = tf.reshape(outputs, [-1, network_dim])
         return outputs
 
-    def dense_unit(self, input, name, input_dim, hidden_dim, output_dim):
-        bn = tf.nn.batch_normalization(input, mean = 0.0, variance = 1.0, offset=tf.constant(0.0), scale=None, variance_epsilon=0.001)
-        W1 = tf.get_variable(name="W1_"+name, shape=[input_dim, hidden_dim], initializer=tf.contrib.layers.xavier_initializer())
-        b1 = tf.get_variable(name="b1_"+name, shape=[hidden_dim], initializer=tf.contrib.layers.xavier_initializer())
-        h1 = tf.nn.relu(tf.matmul(bn, W1) + b1)
-        d = tf.nn.dropout(h1, keep_prob = 0.5, seed = 42)
-        W2 = tf.get_variable(name="W2_"+name, shape=[hidden_dim, output_dim], initializer=tf.contrib.layers.xavier_initializer())
-        b2 = tf.get_variable(name="b2_"+name, shape=[output_dim], initializer=tf.contrib.layers.xavier_initializer())
-        out = tf.matmul(d, W2) + b2
-        bn_out = tf.nn.batch_normalization(out, mean = 0.0, variance = 1.0, offset=tf.constant(0.0), scale=None, variance_epsilon=0.001)
-        return bn_out
+    def dense_unit(self, input, name, input_dim, output_dim):
+        W1 = tf.get_variable(name="W1_"+name, shape=[input_dim, output_dim], initializer=tf.contrib.layers.xavier_initializer())
+        b1 = tf.get_variable(name="b1_"+name, shape=[output_dim], initializer=tf.contrib.layers.xavier_initializer())
+        out = tf.matmul(input, W1) + b1
+        return out
 
 class Network(Layer):
     def __init__(self, graph, max_len, word_dim):
@@ -79,9 +73,9 @@ class Network(Layer):
     def lm_stacked_fc_network(self):
         embed = self.embed(self.train)
         with tf.variable_scope("x", reuse=None) as scope:  
-            repr = self.rnn(input=embed, cell_type="LSTM", network_dim=512)
+            repr = self.stacked_biRNN(input=embed, cell_type="LSTM", n_layers=3, network_dim=256)
         repr_concat = tf.concat(repr, axis=0)
-        output = self.dense_unit(repr_concat, "output", 512, 200, self.word_dim)
+        output = self.dense_unit(repr_concat, "output", 256*2, self.word_dim)
         return output
 
 

@@ -52,6 +52,7 @@ class Run(object):
            with tf.Session(graph=graph) as sess:
                sess.run(init)
                for epoch in range(config.n_epochs):
+
                  train_iter_ = data.batch_generator(config.batch_size)
                  for batch_idx, batch in enumerate(tqdm(train_iter_)):
                     train_batch, train_labels_batch = batch
@@ -72,14 +73,14 @@ class Run(object):
                             new_sentence = np.zeros((1,1))
                             new_sentence[0,0] = word_index['^']
                             i = 0
-                            while word_index['$'] not in new_sentence:
+                            while word_index['$'] not in new_sentence and len(new_sentence[0]) < 50:
                                 next_word_prob, = sess.run([output], feed_dict = {config.model.network.train : new_sentence})
                                 pred = tf.nn.softmax(next_word_prob).eval()
                                 next_word = np.argmax(np.random.multinomial(1, pred.tolist()[0]))
                                 new_sentence = np.concatenate([new_sentence, [[next_word]]], axis=1)
                             print(' '.join([index_to_word[x] for x in new_sentence.tolist()[0]]))
-                    writer.add_summary(summary, batch_idx)
-                    
+                            writer.add_summary(summary, batch_idx)
+                
         display.done()
 
 if __name__ == '__main__':
@@ -101,13 +102,13 @@ if __name__ == '__main__':
     config = Config(network="lm_stacked_fc",
                     n_train_samples=7000, 
                     n_validation_samples=222,
-                    n_epochs=10,
+                    n_epochs=100,
                     batch_size=100,
                     embedding_matrix = args.embedding,
-                    max_len=40,
-                    word_dim=40, 
+                    max_len=39,
+                    word_dim=39, 
                     train = args.train,
-                    logdir="/tmp/quora_logs/test", 
+                    logdir="/tmp/shake_logs/test_stacked_rnn", 
                     save_embedding=args.save_embedding,
                     save_train_data=args.save_train,
                     calculate_validation=True)

@@ -25,7 +25,7 @@ class Data(object):
         import string
         df['sentences'] = df.sentences.apply(lambda x: '^ ' + x + ' $')
         vocab_chars = string.ascii_lowercase + '^$0123456789 '
-        vocab2ix_dict = {char:(ix+1) for ix, char in enumerate(vocab_chars)}
+        vocab2ix_dict = {char:ix for ix, char in enumerate(vocab_chars)}
         vocab_length = len(vocab_chars) + 1
         start_token = vocab2ix_dict['^']
         end_token = vocab2ix_dict['$']
@@ -42,7 +42,6 @@ class Data(object):
         if self.embedding_matrix is None:
             self.embedding_matrix = tf.diag(tf.ones(shape=[self.word_dim]))
         print("example sentence: %s" % df['sentences'][0])
-        import ipdb; ipdb.set_trace()
         print("x: %s" % self.train[0,:])
         print("y: %s" % self.train_labels[0,:])
         return start_token, end_token, vocab2ix_dict
