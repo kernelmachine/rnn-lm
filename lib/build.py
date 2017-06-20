@@ -12,7 +12,7 @@ class BuildLM(object):
         print("building lm_stacked_fc network...")
         output = self.network.lm_stacked_fc_network()
         loss, perplexity = self.loss.cross_entropy(output)
-        opt = self.opt.adam(loss, 0.001)
+        opt = self.opt.adam(loss, 0.002)
         # acc, train_summ, valid_summ = self.accuracy.sigmoid_accuracy(self.loss.labels, output)
         merged = tf.summary.merge_all()
         return output, loss, perplexity, opt, merged

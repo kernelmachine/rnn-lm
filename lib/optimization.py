@@ -6,7 +6,7 @@ class SoftmaxLoss(object):
     
     def __init__(self, max_len, word_dim):
         self.word_dim = word_dim
-        self.labels = tf.placeholder(dtype=tf.int32, shape=(None, max_len-1), name='labels')
+        self.labels = tf.placeholder(dtype=tf.int32, shape=(None, None), name='labels')
 
     def cross_entropy(self, logits):
         embed_labels = tf.nn.embedding_lookup(tf.diag(tf.ones(shape=[self.word_dim])), self.labels)

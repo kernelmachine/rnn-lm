@@ -23,7 +23,7 @@ class Data(object):
     def preprocess_char(self, df):
         print("preprocessing data...")
         import string
-        df['sentences'] = df.sentences.apply(lambda x: '^ ' + x + ' $')
+        df['sentences'] = df.sentences.apply(lambda x: '^' + x + '$')
         vocab_chars = string.ascii_lowercase + '^$0123456789 '
         vocab2ix_dict = {char:ix for ix, char in enumerate(vocab_chars)}
         vocab_length = len(vocab_chars) + 1
@@ -33,7 +33,7 @@ class Data(object):
             # translate sentence string into indices
             sentence_ix = [vocab2ix_dict[x] for x in list(sentence) if x in vocab_chars]
             # Pad or crop to embedding dimension
-            sentence_ix = (sentence_ix + [0]*self.word_dim)[0:self.word_dim]
+            sentence_ix = (sentence_ix + [0]*self.max_len)[0:self.max_len]
             return(sentence_ix)
         one_hots = df.sentences.str.lower().apply(sentence2onehot)
         one_hots = np.matrix(one_hots.tolist())
@@ -66,6 +66,7 @@ class Data(object):
         print("example sentence: %s" % df['sentences'][0])
         print("x: %s" % self.train[0,:])
         print("y: %s" % self.train_labels[0,:])
+        
         return start_token, end_token, word_index
 
     def subsample(self, n_train_samples, n_validation_samples):
@@ -75,8 +76,8 @@ class Data(object):
         np.random.shuffle(global_idx)
         train_sample_idx = global_idx[:n_train_samples]
         validation_sample_idx = global_idx[n_train_samples:]
-        self.valid = self.train[validation_sample_idx, :self.word_dim]
-        self.train = self.train[train_sample_idx, :self.word_dim]
+        self.valid = self.train[validation_sample_idx, :]
+        self.train = self.train[train_sample_idx, :]
         self.valid_labels = self.train_labels[validation_sample_idx,:]
         self.train_labels = self.train_labels[train_sample_idx, :]
 
