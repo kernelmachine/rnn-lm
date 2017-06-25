@@ -74,11 +74,18 @@ class Run(object):
                             new_sentence[0,0] = word_index['^']
                             while word_index['$'] not in new_sentence and len(new_sentence[0]) < 200:
                                 next_word_prob, = sess.run([output], feed_dict = {config.model.network.train : new_sentence})
+                                from scipy.misc import logsumexp
+                                def weighted_pick(weights):
+                                    t = np.cumsum(weights)
+                                    s = np.sum(weights)
+                                    return(int(np.searchsorted(t, np.random.rand(1)*s)))       
+
                                 pred = tf.nn.softmax(next_word_prob[-1]).eval()
-                                next_word = np.argmax(np.random.multinomial(1, pred))
+                                next_word = weighted_pick(pred)
                                 # next_word = np.argmax(pred)
                                 new_sentence = np.concatenate([new_sentence, [[next_word]]], axis=1)
-                            print(''.join([index_to_word[x] for x in new_sentence.tolist()[0]]))
+                            
+                            print(''.join([index_to_word[int(x)] for x in new_sentence.tolist()[0]]))
                             writer.add_summary(summary, batch_idx)
                 
         display.done()

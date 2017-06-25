@@ -6,7 +6,7 @@ class Layer(object):
         self.max_len = max_len
         self.word_dim = word_dim
         self.train = tf.placeholder(dtype=tf.int32, shape=(None, None), name='x')
-        self.embedding_matrix = None
+        self.embedding_matrix = tf.Variable(tf.diag(tf.ones(word_dim)))
 
     def embed(self, input):
         return tf.nn.embedding_lookup(self.embedding_matrix, input)
@@ -80,12 +80,11 @@ class Network(Layer):
     
 
     def lm_stacked_fc_network(self):
-        self.embedding_matrix = tf.Variable(tf.random_uniform([self.word_dim, 256], -1.0, 1.0), dtype=tf.float32)
         embed = self.embed(self.train)
         with tf.variable_scope("x", reuse=None) as scope:  
-            repr = self.stacked_RNN(input=embed, cell_type="LSTM", n_layers=2, keep_prob=1.0, network_dim=256)
+            repr = self.stacked_RNN(input=embed, cell_type="LSTM", n_layers=3, keep_prob=0.5, network_dim=512)
         repr_concat = tf.concat(repr, axis=0)
-        output = self.dense_unit(repr_concat, "output", 256, self.word_dim)
+        output = self.dense_unit(repr_concat, "output", 512, self.word_dim)
         return output
 
 

@@ -24,7 +24,7 @@ class Data(object):
         print("preprocessing data...")
         import string
         df['sentences'] = df.sentences.apply(lambda x: '^' + x + '$')
-        vocab_chars = string.ascii_lowercase + '^$0123456789 '
+        vocab_chars = "qnbsuw$mr&d;zlypic?xv3'-gof:t!a ,jeh.k^"
         vocab2ix_dict = {char:ix for ix, char in enumerate(vocab_chars)}
         vocab_length = len(vocab_chars) + 1
         start_token = vocab2ix_dict['^']
