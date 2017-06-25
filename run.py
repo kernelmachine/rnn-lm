@@ -49,7 +49,7 @@ class Run(object):
            writer = TensorBoard(graph=graph, logdir=config.logdir).writer
            output, loss, perplexity, opt, merged = config.build_network(graph)
            init = tf.global_variables_initializer()
-           with tf.Session(graph=graph) as sess:
+           with tf.Session(graph=graph, config=tf.ConfigProto(log_device_placement=True)) as sess:
                sess.run(init)
                for epoch in range(config.n_epochs):
 
